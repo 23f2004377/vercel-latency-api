@@ -13,8 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "q-vercel-latency.json")
-
+DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "telemetry.json")
 with open(DATA_PATH) as f:
     telemetry = json.load(f)
 
