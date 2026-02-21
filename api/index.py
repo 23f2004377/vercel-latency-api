@@ -1,34 +1,35 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import numpy as np
+import os
 
 app = FastAPI()
 
-# allow CORS from anywhere
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["POST"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
-# load telemetry data
-with open("telemetry.json") as f:
-    data = json.load(f)
+DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "q-vercel-latency.json")
 
-@app.post("/api/latency")
-async def analyze(payload: dict):
-    regions = payload["regions"]
-    threshold = payload["threshold_ms"]
+with open(DATA_PATH) as f:
+    telemetry = json.load(f)
+
+@app.post("/")
+async def latency(request: Request):
+    body = await request.json()
+    regions = body["regions"]
+    threshold = body["threshold_ms"]
 
     result = {}
 
     for region in regions:
-        rows = [r for r in data if r["region"] == region]
-
-        latencies = [r["latency_ms"] for r in rows]
-        uptimes = [r["uptime_pct"] for r in rows]
+        records = [r for r in telemetry if r["region"] == region]
+        latencies = [r["latency_ms"] for r in records]
+        uptimes = [r["uptime"] for r in records]
 
         result[region] = {
             "avg_latency": float(np.mean(latencies)),
