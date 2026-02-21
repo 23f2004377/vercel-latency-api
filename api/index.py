@@ -15,7 +15,7 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "telemetry.json")
+DATA_PATH = os.path.join(os.path.dirname(__file__), ".", "telemetry.json")
 with open(DATA_PATH) as f:
     telemetry = json.load(f)
 
@@ -40,3 +40,5 @@ async def latency(request: Request):
         }
 
     return result
+
+handler = app
