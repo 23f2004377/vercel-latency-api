@@ -1,45 +1,54 @@
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
 import json
 import numpy as np
 import os
-from mangum import Mangum
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FILE_PATH = os.path.join(BASE_DIR, "q-vercel-latency.json")
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), ".", "telemetry.json")
-with open(DATA_PATH) as f:
-    telemetry = json.load(f)
+with open(FILE_PATH) as f:
+    data = json.load(f)
 
-@app.post("/")
-async def latency(request: Request):
-    body = await request.json()
-    regions = body["regions"]
-    threshold = body["threshold_ms"]
 
-    result = {}
+def cors_headers():
+    return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    }
+
+
+@app.options("/api")
+async def options_handler():
+    return Response(status_code=200, headers=cors_headers())
+
+
+@app.post("/api")
+async def analyze(request: Request):
+    payload = await request.json()
+
+    regions = payload.get("regions", [])
+    threshold = payload.get("threshold_ms", 0)
+
+    results = {}
 
     for region in regions:
-        records = [r for r in telemetry if r["region"] == region]
-        latencies = [r["latency_ms"] for r in records]
-        uptimes = [r["uptime"] for r in records]
+        records = [r for r in data if r["region"] == region]
 
-        result[region] = {
+        if not records:
+            continue
+
+        latencies = [r["latency_ms"] for r in records]
+        uptimes = [r["uptime_pct"] for r in records]
+
+        results[region] = {
             "avg_latency": float(np.mean(latencies)),
             "p95_latency": float(np.percentile(latencies, 95)),
             "avg_uptime": float(np.mean(uptimes)),
-            "breaches": sum(l > threshold for l in latencies)
+            "breaches": sum(1 for l in latencies if l > threshold)
         }
 
-    return result
-
-handler = Mangum(app)
+    return JSONResponse(content=results, headers=cors_headers())
